@@ -2,7 +2,7 @@
 
 Windows system state snapshot and diff tool for malware analysis and dynamic analysis labs.
 
-Run `ck` **before** executing a suspicious file, then again **after** — get a precise, structured diff of everything that changed: processes, network connections, registry persistence, files, scheduled tasks, and services.
+Run `ck` **before** executing a suspicious file, then again **after** — get a precise, structured diff of everything that changed: processes, network connections, registry persistence, files, scheduled tasks, services, firewall rules, WMI subscriptions, and startup folder contents.
 
 ---
 
@@ -30,7 +30,7 @@ An interactive menu appears. Navigate with **↑↓**, select with **Enter**, ex
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Baseline   ✓  2026-03-18 10:00 UTC  (DESKTOP-LAB01)
   After      not taken
-  Collectors processes, network, registry, files, tasks, services
+  Collectors processes, network, registry, files, tasks, services, firewall, wmi, startup
   Output     ./snapshots
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -84,6 +84,17 @@ New entries are shown in green `[+]`, removed in red `[-]`, changed in yellow `[
   SERVICES ───────────────────────────────────────────────
   (clean)
 
+  FIREWALL RULES ─────────────────────────────────────────
+  [+] Inbound      Allow    enabled  "updater"
+       id: {A1B2C3D4-...}
+
+  WMI SUBSCRIPTIONS ──────────────────────────────────────
+  [Filter]  SCM Event Log Filter
+       detail: SELECT * FROM __InstanceModificationEvent ...
+
+  STARTUP FOLDER ─────────────────────────────────────────
+  [+] C:\Users\user\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\run.lnk  (1.2 KB)
+
   SUMMARY ────────────────────────────────────────────────
   processes:  1 added
   network:    2 added
@@ -91,6 +102,9 @@ New entries are shown in green `[+]`, removed in red `[-]`, changed in yellow `[
   files:      1 added
   tasks:      1 added
   services:   clean
+  firewall:   1 added
+  wmi:        1 added
+  startup:    1 added
 ```
 
 ---
@@ -105,6 +119,9 @@ New entries are shown in green `[+]`, removed in red `[-]`, changed in yellow `[
 | **files** | Executable and script files in suspicious locations | `walkdir` (configurable) |
 | **tasks** | Scheduled task name, path, state, execute action | `Get-ScheduledTask` (PS) |
 | **services** | Name, display name, state, start mode, binary path | `Win32_Service` (WMI) |
+| **firewall** | All Windows Firewall rules — catches C2 allow-rules and inbound backdoors | `Get-NetFirewallRule` (PS) |
+| **wmi** | WMI event filters, command-line consumers, and script consumers in `root\subscription` | `Get-CimInstance` (PS) |
+| **startup** | All files (any extension) in per-user and All Users startup folders | filesystem |
 
 ### Why this beats plain `netstat` + `tasklist`
 
@@ -112,6 +129,9 @@ New entries are shown in green `[+]`, removed in red `[-]`, changed in yellow `[
 - **Process identity by executable path** — a fake `svchost.exe` in `%TEMP%` won't hide behind the name
 - **Network connections enriched with process name** — see immediately which process opened a connection
 - **Services collector** — catches service-based persistence that the original scripts missed
+- **Firewall rules collector** — detects new allow-rules that open backdoor ports or whitelist malware traffic
+- **WMI subscription collector** — surfaces fileless persistence via `__EventFilter` / `CommandLineEventConsumer` / `ActiveScriptEventConsumer` in `root\subscription`
+- **Startup folder collector** — catches `.lnk` shortcuts and other non-binary drops that file extension filters would miss
 - **Configurable file scan paths** — focused on high-value locations (`%AppData%`, `%Temp%`, etc.) instead of walking all of `C:\Users`
 
 ---
@@ -130,6 +150,9 @@ registry  = true
 files     = true     # slowest collector — disable for quick scans
 tasks     = true
 services  = true
+firewall  = true
+wmi       = true
+startup   = true
 
 [registry]
 keys = [
