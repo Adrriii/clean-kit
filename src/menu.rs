@@ -10,6 +10,7 @@ use inquire::{InquireError, MultiSelect, Select};
 use crate::collectors::{run_collectors, CollectorFilter, COLLECTOR_NAMES};
 use crate::config::Config;
 use crate::diff;
+use crate::netwatch::{submenu as netwatch_submenu, WatchSession};
 use crate::output;
 use crate::snapshot::Snapshot;
 
@@ -23,6 +24,7 @@ enum Action {
     Run,
     Reset,
     Collectors,
+    NetWatch,
     Quit,
 }
 
@@ -35,6 +37,7 @@ impl fmt::Display for Action {
             Action::Run        => write!(f, "Run: after + diff"),
             Action::Reset      => write!(f, "Reset: fresh baseline"),
             Action::Collectors => write!(f, "Configure collectors"),
+            Action::NetWatch   => write!(f, "Network Watcher"),
             Action::Quit       => write!(f, "Quit"),
         }
     }
@@ -44,10 +47,11 @@ impl fmt::Display for Action {
 
 pub fn run(config: Config) -> Result<()> {
     let mut filter = CollectorFilter::from_config(&config);
+    let mut netwatch: Option<WatchSession> = None;
 
     loop {
         clear();
-        print_header(&config, &filter);
+        print_header(&config, &filter, netwatch.as_ref());
 
         let choice = Select::new("", menu_items())
             .without_help_message()
@@ -56,7 +60,7 @@ pub fn run(config: Config) -> Result<()> {
         match choice {
             Ok(action) => {
                 println!();
-                if let Err(e) = dispatch(action, &config, &mut filter) {
+                if let Err(e) = dispatch(action, &config, &mut filter, &mut netwatch) {
                     println!("  {}: {}", "Error".red().bold(), e);
                     wait_for_enter();
                 }
@@ -72,7 +76,7 @@ pub fn run(config: Config) -> Result<()> {
 
 // ── Action dispatch ───────────────────────────────────────────────────────────
 
-fn dispatch(action: Action, config: &Config, filter: &mut CollectorFilter) -> Result<()> {
+fn dispatch(action: Action, config: &Config, filter: &mut CollectorFilter, netwatch: &mut Option<WatchSession>) -> Result<()> {
     match action {
         Action::Before => {
             println!("{}", "[*] Collecting baseline snapshot...".cyan().bold());
@@ -128,6 +132,10 @@ fn dispatch(action: Action, config: &Config, filter: &mut CollectorFilter) -> Re
             configure_collectors(filter)?;
         }
 
+        Action::NetWatch => {
+            netwatch_submenu::run(netwatch, config)?;
+        }
+
         Action::Quit => std::process::exit(0),
     }
 
@@ -162,7 +170,7 @@ fn configure_collectors(filter: &mut CollectorFilter) -> Result<()> {
 
 // ── Header ────────────────────────────────────────────────────────────────────
 
-fn print_header(config: &Config, filter: &CollectorFilter) {
+fn print_header(config: &Config, filter: &CollectorFilter, netwatch: Option<&WatchSession>) {
     let w = 58;
     println!("{}", "━".repeat(w).dimmed());
     println!("  {}  {}", "clean-kit".bold().cyan(), "Windows State Diff".dimmed());
@@ -186,6 +194,21 @@ fn print_header(config: &Config, filter: &CollectorFilter) {
         enabled.dimmed().to_string()
     };
     println!("  {:<11}{}", "Collectors".dimmed(), collectors_str);
+
+    let netwatch_str = if let Some(s) = netwatch {
+        let count = s.process_count();
+        format!(
+            "{}  {}  ──  {} process{}",
+            "RUNNING".green().bold(),
+            s.elapsed_str(),
+            count,
+            if count == 1 { "" } else { "es" },
+        )
+    } else {
+        "stopped".dimmed().to_string()
+    };
+    println!("  {:<11}{}", "Net Watch".dimmed(), netwatch_str);
+
     println!("  {:<11}{}", "Output".dimmed(), config.output_dir.display().to_string().dimmed());
     println!("{}", "━".repeat(w).dimmed());
     println!();
@@ -213,6 +236,7 @@ fn menu_items() -> Vec<Action> {
         Action::Run,
         Action::Reset,
         Action::Collectors,
+        Action::NetWatch,
         Action::Quit,
     ]
 }

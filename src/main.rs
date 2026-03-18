@@ -2,6 +2,7 @@ mod collectors;
 mod config;
 mod diff;
 mod menu;
+mod netwatch;
 mod output;
 mod snapshot;
 

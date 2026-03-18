@@ -4,6 +4,9 @@ use std::path::PathBuf;
 
 pub const DEFAULT_TOML: &str = r#"output_dir = "./snapshots"
 
+[netwatch]
+interface = "All interfaces"
+
 [collectors]
 processes = true
 network   = true
@@ -40,6 +43,7 @@ max_depth  = 6
 
 fn default_output_dir() -> PathBuf { PathBuf::from("./snapshots") }
 fn default_true() -> bool { true }
+fn default_interface() -> String { "All interfaces".to_string() }
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -51,6 +55,18 @@ pub struct Config {
     pub registry: RegistryConfig,
     #[serde(default)]
     pub files: FilesConfig,
+    #[serde(default)]
+    pub netwatch: NetwatchConfig,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NetwatchConfig {
+    #[serde(default = "default_interface")]
+    pub interface: String,
+}
+
+impl Default for NetwatchConfig {
+    fn default() -> Self { Self { interface: default_interface() } }
 }
 
 #[derive(Debug, Deserialize)]
@@ -136,6 +152,33 @@ pub fn load(path: Option<&std::path::Path>) -> Result<Config> {
     } else {
         Ok(toml::from_str(DEFAULT_TOML)?)
     }
+}
+
+/// Persist the chosen network interface back into cleankit.toml.
+/// Reads the file as a TOML value, updates `netwatch.interface`, and writes it back.
+/// If no config file exists, creates one from DEFAULT_TOML first.
+pub fn save_netwatch_interface(interface: &str) -> Result<()> {
+    let config_path = std::path::Path::new("cleankit.toml");
+
+    let content = if config_path.exists() {
+        std::fs::read_to_string(config_path)?
+    } else {
+        DEFAULT_TOML.to_string()
+    };
+
+    let mut value: toml::Value = toml::from_str(&content)?;
+
+    if let Some(table) = value.as_table_mut() {
+        let netwatch = table
+            .entry("netwatch")
+            .or_insert_with(|| toml::Value::Table(toml::map::Map::new()));
+        if let Some(nt) = netwatch.as_table_mut() {
+            nt.insert("interface".to_string(), toml::Value::String(interface.to_string()));
+        }
+    }
+
+    std::fs::write(config_path, toml::to_string_pretty(&value)?)?;
+    Ok(())
 }
 
 pub fn expand_env(s: &str) -> String {
