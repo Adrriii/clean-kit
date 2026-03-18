@@ -31,6 +31,7 @@ An interactive menu appears. Navigate with **↑↓**, select with **Enter**, ex
   Baseline   ✓  2026-03-18 10:00 UTC  (DESKTOP-LAB01)
   After      not taken
   Collectors processes, network, registry, files, tasks, services, firewall, wmi, startup
+  Net Watch  RUNNING  00:02  ──  1 process
   Output     ./snapshots
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -40,10 +41,11 @@ An interactive menu appears. Navigate with **↑↓**, select with **Enter**, ex
   Run: after + diff
   Reset: fresh baseline
   Configure collectors
+  Network Watcher
   Quit
 ```
 
-### Typical workflow
+### Snapshot workflow
 
 | Step | Action |
 |------|--------|
@@ -51,6 +53,15 @@ An interactive menu appears. Navigate with **↑↓**, select with **Enter**, ex
 | 2 | Run the file you want to analyze |
 | 3 | Select **Run: after + diff** — captures post-execution state and immediately shows what changed |
 | 4 | Select **Reset: fresh baseline** before the next sample |
+
+### Network Watcher workflow
+
+| Step | Action |
+|------|--------|
+| 1 | Select **Network Watcher → Start watching** — snapshots the current process list as baseline, then enters the live view |
+| 2 | Run the file you want to analyze |
+| 3 | Watch new processes and their connections appear in real time |
+| 4 | Press **S** to stop, **Q** to leave the view and return to the menu |
 
 ---
 
@@ -123,6 +134,56 @@ New entries are shown in green `[+]`, removed in red `[-]`, changed in yellow `[
 | **wmi** | WMI event filters, command-line consumers, and script consumers in `root\subscription` | `Get-CimInstance` (PS) |
 | **startup** | All files (any extension) in per-user and All Users startup folders | filesystem |
 
+---
+
+## Network Watcher
+
+The Network Watcher is a live monitoring mode that runs independently of the snapshot workflow. It snapshots the current process list at start, then continuously polls network connections — only tracking processes that weren't running at that moment.
+
+```
+  NETWORK WATCH  ──  00:02:14  ──  All interfaces  ──  2 new processes
+────────────────────────────────────────────────────────────────────────
+  ▶ updater.exe (PID 4821)   312 poll-hits
+       185.220.0.1:443                           TCP     312 hits
+       8.8.8.8:53                                UDP      48 hits
+
+    game.exe (PID 3190)   6 poll-hits
+       192.168.1.1:80                            TCP       6 hits
+────────────────────────────────────────────────────────────────────────
+  [Q] leave view  [S] stop watching  [D] suppress process  [↑↓] navigate
+```
+
+Processes are sorted by total poll-hits (highest activity first). Endpoints within each process are sorted the same way, making outliers immediately visible. The **poll-hit** count reflects how many 500ms polling cycles a connection was observed active — higher values indicate longer-lived or more persistent connections.
+
+### Controls
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate between processes |
+| `D` | Suppress the highlighted process (ignored for the rest of the session) |
+| `Q` / `Esc` | Leave the live view, keep watching in the background |
+| `S` | Stop watching entirely |
+
+### Submenu
+
+Accessible from **Network Watcher** in the main menu.
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Network Watcher  live network activity monitor
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Status     RUNNING  00:02  ──  1 process
+  Interface  Ethernet
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❯ Live view
+  Stop watching
+  Configure network interface
+  Back
+```
+
+The selected network interface is saved to `cleankit.toml` under `[netwatch]` and persists across sessions.
+
 ### Why this beats plain `netstat` + `tasklist`
 
 - **Structured JSON snapshots** — precise set-difference diffing, no false positives from text matching
@@ -142,6 +203,9 @@ New entries are shown in green `[+]`, removed in red `[-]`, changed in yellow `[
 
 ```toml
 output_dir = "./snapshots"
+
+[netwatch]
+interface = "All interfaces"   # saved automatically when changed in the menu
 
 [collectors]
 processes = true
