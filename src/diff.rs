@@ -30,6 +30,9 @@ pub struct SnapshotDiff {
     pub files:     CollectorDiff<FileEntry>,
     pub tasks:     CollectorDiff<TaskEntry>,
     pub services:  CollectorDiff<ServiceEntry>,
+    pub firewall:  CollectorDiff<FirewallRuleEntry>,
+    pub wmi:       CollectorDiff<WmiSubscriptionEntry>,
+    pub startup:   CollectorDiff<FileEntry>,
 }
 
 // ── Main entry point ──────────────────────────────────────────────────────────
@@ -42,6 +45,9 @@ pub fn compute(before: &Snapshot, after: &Snapshot) -> SnapshotDiff {
         files:     diff_files(&before.data.files, &after.data.files),
         tasks:     diff_tasks(&before.data.tasks, &after.data.tasks),
         services:  diff_services(&before.data.services, &after.data.services),
+        firewall:  diff_firewall(&before.data.firewall, &after.data.firewall),
+        wmi:       diff_wmi(&before.data.wmi, &after.data.wmi),
+        startup:   diff_startup(&before.data.startup, &after.data.startup),
     }
 }
 
@@ -126,6 +132,45 @@ fn diff_services(
             b, a,
             |s| s.name.to_lowercase(),
             |a, b| a.state == b.state && a.start_mode == b.start_mode && a.path_name == b.path_name,
+        )
+    })
+}
+
+fn diff_firewall(
+    before: &Option<Vec<FirewallRuleEntry>>,
+    after: &Option<Vec<FirewallRuleEntry>>,
+) -> CollectorDiff<FirewallRuleEntry> {
+    with_data(before, after, |b, a| {
+        diff_entries(
+            b, a,
+            |r| r.name.to_lowercase(),
+            |a, b| a.action == b.action && a.enabled == b.enabled && a.direction == b.direction,
+        )
+    })
+}
+
+fn diff_wmi(
+    before: &Option<Vec<WmiSubscriptionEntry>>,
+    after: &Option<Vec<WmiSubscriptionEntry>>,
+) -> CollectorDiff<WmiSubscriptionEntry> {
+    with_data(before, after, |b, a| {
+        diff_entries(
+            b, a,
+            |e| (e.kind.to_lowercase(), e.name.to_lowercase()),
+            |a, b| a.detail == b.detail,
+        )
+    })
+}
+
+fn diff_startup(
+    before: &Option<Vec<FileEntry>>,
+    after: &Option<Vec<FileEntry>>,
+) -> CollectorDiff<FileEntry> {
+    with_data(before, after, |b, a| {
+        diff_entries(
+            b, a,
+            |f| f.path.to_lowercase(),
+            |a, b| a.size == b.size && a.modified == b.modified,
         )
     })
 }

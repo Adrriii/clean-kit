@@ -61,6 +61,25 @@ pub struct ServiceEntry {
     pub start_name: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FirewallRuleEntry {
+    pub name: String,
+    pub display: String,
+    pub direction: String,
+    pub action: String,
+    pub enabled: String,
+    pub profile: String,
+}
+
+/// A WMI event subscription object: either an __EventFilter,
+/// a CommandLineEventConsumer, or an ActiveScriptEventConsumer.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WmiSubscriptionEntry {
+    pub kind: String,   // "Filter", "CommandLine", "ActiveScript"
+    pub name: String,
+    pub detail: String, // query, command template, or script text
+}
+
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct CollectedData {
     pub processes: Option<Vec<ProcessEntry>>,
@@ -69,6 +88,9 @@ pub struct CollectedData {
     pub files: Option<Vec<FileEntry>>,
     pub tasks: Option<Vec<TaskEntry>>,
     pub services: Option<Vec<ServiceEntry>>,
+    pub firewall: Option<Vec<FirewallRuleEntry>>,
+    pub wmi: Option<Vec<WmiSubscriptionEntry>>,
+    pub startup: Option<Vec<FileEntry>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -15,7 +15,10 @@ pub fn print_diff(diff: &SnapshotDiff, before: &Snapshot, after: &Snapshot, show
         | print_registry(&diff.registry, show_removed)
         | print_files(&diff.files, show_removed)
         | print_tasks(&diff.tasks, show_removed)
-        | print_services(&diff.services, show_removed);
+        | print_services(&diff.services, show_removed)
+        | print_firewall(&diff.firewall, show_removed)
+        | print_wmi(&diff.wmi, show_removed)
+        | print_startup(&diff.startup, show_removed);
 
     if !any {
         println!("\n  {}", "No changes detected.".green());
@@ -249,6 +252,84 @@ fn print_services(d: &CollectorDiff<ServiceEntry>, show_removed: bool) -> bool {
     true
 }
 
+fn print_firewall(d: &CollectorDiff<FirewallRuleEntry>, show_removed: bool) -> bool {
+    if d.skipped { return false; }
+    let has = d.has_changes() || (show_removed && !d.removed.is_empty());
+    if !has { return false; }
+
+    section("FIREWALL RULES");
+    for r in &d.added {
+        row_added(&format!(
+            "{:<12} {:<8} {}  \"{}\"",
+            r.direction, r.action, if r.enabled == "True" { "enabled" } else { "disabled" }, r.display
+        ));
+        if !r.name.is_empty() && r.name != r.display {
+            println!("       id: {}", r.name.dimmed());
+        }
+    }
+    if show_removed {
+        for r in &d.removed {
+            row_removed(&format!("{:<12} {:<8} \"{}\"", r.direction, r.action, r.display));
+        }
+    }
+    for (before, after) in &d.changed {
+        row_changed(&format!("\"{}\"", before.display));
+        if before.action != after.action {
+            println!("       action: {} → {}", before.action.dimmed(), after.action.yellow());
+        }
+        if before.enabled != after.enabled {
+            println!("       enabled: {} → {}", before.enabled.dimmed(), after.enabled.yellow());
+        }
+    }
+    true
+}
+
+fn print_wmi(d: &CollectorDiff<WmiSubscriptionEntry>, show_removed: bool) -> bool {
+    if d.skipped { return false; }
+    let has = d.has_changes() || (show_removed && !d.removed.is_empty());
+    if !has { return false; }
+
+    section("WMI SUBSCRIPTIONS");
+    for e in &d.added {
+        row_added(&format!("[{}]  {}", e.kind, e.name));
+        if !e.detail.is_empty() {
+            let preview: String = e.detail.chars().take(120).collect();
+            println!("       detail: {}", preview.dimmed());
+        }
+    }
+    if show_removed {
+        for e in &d.removed {
+            row_removed(&format!("[{}]  {}", e.kind, e.name));
+        }
+    }
+    for (before, after) in &d.changed {
+        row_changed(&format!("[{}]  {} — detail changed", before.kind, before.name));
+        println!("       was: {}", before.detail.chars().take(80).collect::<String>().dimmed());
+        println!("       now: {}", after.detail.chars().take(80).collect::<String>().yellow());
+    }
+    true
+}
+
+fn print_startup(d: &CollectorDiff<FileEntry>, show_removed: bool) -> bool {
+    if d.skipped { return false; }
+    let has = d.has_changes() || (show_removed && !d.removed.is_empty());
+    if !has { return false; }
+
+    section("STARTUP FOLDER");
+    for f in &d.added {
+        row_added(&format!("{}  ({} bytes)", f.path, fmt_size(f.size)));
+    }
+    if show_removed {
+        for f in &d.removed {
+            row_removed(&f.path);
+        }
+    }
+    for (before, after) in &d.changed {
+        row_changed(&format!("{}  {} → {} bytes", before.path, fmt_size(before.size), fmt_size(after.size)));
+    }
+    true
+}
+
 // ── Summary and hints ─────────────────────────────────────────────────────────
 
 fn print_summary(diff: &SnapshotDiff) {
@@ -271,6 +352,9 @@ fn print_summary(diff: &SnapshotDiff) {
     println!("  files:      {}", count(&diff.files));
     println!("  tasks:      {}", count(&diff.tasks));
     println!("  services:   {}", count(&diff.services));
+    println!("  firewall:   {}", count(&diff.firewall));
+    println!("  wmi:        {}", count(&diff.wmi));
+    println!("  startup:    {}", count(&diff.startup));
 }
 
 fn print_hints() {

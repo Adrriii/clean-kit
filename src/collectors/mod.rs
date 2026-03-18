@@ -1,9 +1,12 @@
 pub mod files;
+pub mod firewall;
 pub mod network;
 pub mod processes;
 pub mod registry;
 pub mod services;
+pub mod startup;
 pub mod tasks;
+pub mod wmi;
 
 use anyhow::Result;
 use serde::de::DeserializeOwned;
@@ -15,7 +18,7 @@ use crate::snapshot::{CollectedData, Snapshot};
 // ── Collector filter ─────────────────────────────────────────────────────────
 
 pub const COLLECTOR_NAMES: &[&str] =
-    &["processes", "network", "registry", "files", "tasks", "services"];
+    &["processes", "network", "registry", "files", "tasks", "services", "firewall", "wmi", "startup"];
 
 pub struct CollectorFilter {
     pub processes: bool,
@@ -24,6 +27,9 @@ pub struct CollectorFilter {
     pub files: bool,
     pub tasks: bool,
     pub services: bool,
+    pub firewall: bool,
+    pub wmi: bool,
+    pub startup: bool,
 }
 
 impl CollectorFilter {
@@ -37,6 +43,9 @@ impl CollectorFilter {
             files:     c.files,
             tasks:     c.tasks,
             services:  c.services,
+            firewall:  c.firewall,
+            wmi:       c.wmi,
+            startup:   c.startup,
         }
     }
 
@@ -49,6 +58,9 @@ impl CollectorFilter {
             files:     enabled.contains(&"files"),
             tasks:     enabled.contains(&"tasks"),
             services:  enabled.contains(&"services"),
+            firewall:  enabled.contains(&"firewall"),
+            wmi:       enabled.contains(&"wmi"),
+            startup:   enabled.contains(&"startup"),
         }
     }
 
@@ -67,6 +79,9 @@ impl CollectorFilter {
             "files"     => self.files,
             "tasks"     => self.tasks,
             "services"  => self.services,
+            "firewall"  => self.firewall,
+            "wmi"       => self.wmi,
+            "startup"   => self.startup,
             _           => false,
         }
     }
@@ -175,6 +190,51 @@ pub fn run_collectors(config: &Config, filter: &CollectorFilter) -> Result<Snaps
             Err(e) => {
                 println!();
                 eprintln!("  [!] services failed: {e}");
+            }
+        }
+    }
+
+    if filter.firewall {
+        print!("  [*] firewall...");
+        let _ = std::io::stdout().flush();
+        match firewall::collect() {
+            Ok(f) => {
+                println!(" {} entries", f.len());
+                data.firewall = Some(f);
+            }
+            Err(e) => {
+                println!();
+                eprintln!("  [!] firewall failed: {e}");
+            }
+        }
+    }
+
+    if filter.wmi {
+        print!("  [*] wmi...");
+        let _ = std::io::stdout().flush();
+        match wmi::collect() {
+            Ok(w) => {
+                println!(" {} entries", w.len());
+                data.wmi = Some(w);
+            }
+            Err(e) => {
+                println!();
+                eprintln!("  [!] wmi failed: {e}");
+            }
+        }
+    }
+
+    if filter.startup {
+        print!("  [*] startup...");
+        let _ = std::io::stdout().flush();
+        match startup::collect() {
+            Ok(s) => {
+                println!(" {} entries", s.len());
+                data.startup = Some(s);
+            }
+            Err(e) => {
+                println!();
+                eprintln!("  [!] startup failed: {e}");
             }
         }
     }

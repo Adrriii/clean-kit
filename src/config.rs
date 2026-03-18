@@ -11,6 +11,9 @@ registry  = true
 files     = true
 tasks     = true
 services  = true
+firewall  = true
+wmi       = true
+startup   = true
 
 [registry]
 keys = [
@@ -58,11 +61,17 @@ pub struct CollectorConfig {
     #[serde(default = "default_true")] pub files:     bool,
     #[serde(default = "default_true")] pub tasks:     bool,
     #[serde(default = "default_true")] pub services:  bool,
+    #[serde(default = "default_true")] pub firewall:  bool,
+    #[serde(default = "default_true")] pub wmi:       bool,
+    #[serde(default = "default_true")] pub startup:   bool,
 }
 
 impl Default for CollectorConfig {
     fn default() -> Self {
-        Self { processes: true, network: true, registry: true, files: true, tasks: true, services: true }
+        Self {
+            processes: true, network: true, registry: true, files: true,
+            tasks: true, services: true, firewall: true, wmi: true, startup: true,
+        }
     }
 }
 
