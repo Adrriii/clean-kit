@@ -84,6 +84,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "colored",
+ "crossterm",
  "inquire",
  "serde",
  "serde_json",

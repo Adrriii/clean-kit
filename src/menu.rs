@@ -1,6 +1,8 @@
 use std::fmt;
 use std::io::Write as _;
 
+use crossterm::{cursor::MoveTo, execute, terminal::{Clear, ClearType}};
+
 use anyhow::Result;
 use colored::Colorize;
 use inquire::{InquireError, MultiSelect, Select};
@@ -216,8 +218,7 @@ fn menu_items() -> Vec<Action> {
 }
 
 fn clear() {
-    print!("\x1b[2J\x1b[H");
-    let _ = std::io::stdout().flush();
+    execute!(std::io::stdout(), Clear(ClearType::All), MoveTo(0, 0)).ok();
 }
 
 fn wait_for_enter() {
