@@ -1,0 +1,31 @@
+output_dir = "./snapshots"
+
+[collectors]
+processes = true
+network   = true
+registry  = true
+files     = true
+tasks     = true
+services  = true
+
+[registry]
+keys = [
+    "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+    "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+    "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+    "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+    "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\RunServices",
+    "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\RunServices",
+]
+
+[files]
+paths = [
+    "%APPDATA%",
+    "%LOCALAPPDATA%",
+    "%TEMP%",
+    "%USERPROFILE%\\Downloads",
+    "%USERPROFILE%\\Desktop",
+    "C:\\ProgramData",
+]
+extensions = ["exe", "dll", "bat", "ps1", "vbs", "js", "hta", "scr", "com"]
+max_depth  = 6
